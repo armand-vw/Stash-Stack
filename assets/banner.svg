@@ -1,0 +1,88 @@
+<svg width="1280" height="420" viewBox="0 0 1280 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Stash-Stack — Personal Budgeting and Financial Dashboard">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#020617"/>
+      <stop offset="0.55" stop-color="#0b1226"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#818cf8"/>
+      <stop offset="0.5" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#f0abfc"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#6366f1" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ec4899" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#94a3b8" stroke-opacity="0.06" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="420" rx="0" fill="url(#bg)"/>
+  <rect width="1280" height="420" fill="url(#grid)"/>
+  <ellipse cx="1050" cy="60" rx="420" ry="300" fill="url(#glow)"/>
+  <ellipse cx="1180" cy="400" rx="360" ry="260" fill="url(#glow2)"/>
+
+  <!-- decorative bar chart -->
+  <g opacity="0.55">
+    <rect x="980" y="250" width="26" height="90" rx="6" fill="#334155"/>
+    <rect x="1020" y="210" width="26" height="130" rx="6" fill="#4f46e5"/>
+    <rect x="1060" y="270" width="26" height="70" rx="6" fill="#334155"/>
+    <rect x="1100" y="170" width="26" height="170" rx="6" fill="#6366f1"/>
+    <rect x="1140" y="230" width="26" height="110" rx="6" fill="#334155"/>
+    <rect x="1180" y="140" width="26" height="200" rx="6" fill="url(#accent)"/>
+  </g>
+  <polyline points="980,235 1020,205 1060,225 1100,165 1140,195 1206,120"
+            fill="none" stroke="#a5b4fc" stroke-opacity="0.6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- logo mark -->
+  <g transform="translate(80, 96)">
+    <rect x="0" y="0" width="72" height="72" rx="20" fill="url(#brand)"/>
+    <path d="M20 44c0-13 8-18 16-22 6-3 8-5 8-8 0-3-2-5-6-5-4 0-6 2-8 5l-8-5c3-5 8-9 16-9 9 0 15 5 15 13 0 8-5 12-12 16-6 3-9 5-10 8h23v9H20v-2z" fill="#0b1226"/>
+  </g>
+
+  <text x="80" y="250" font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-size="76" font-weight="800" letter-spacing="-2">
+    <tspan fill="#ffffff">Stash</tspan><tspan fill="url(#brand)">-Stack</tspan>
+  </text>
+
+  <text x="82" y="292" font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-size="25" font-weight="600" fill="#cbd5e1">
+    Personal Budgeting &amp; Financial Management Dashboard
+  </text>
+
+  <text x="82" y="330" font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-size="16" font-weight="500" fill="#94a3b8">
+    Single HTML file · Offline-first · localStorage · Tailwind CSS + Chart.js · Zero build
+  </text>
+
+  <!-- pills -->
+  <g font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-size="14" font-weight="600">
+    <g transform="translate(82, 356)">
+      <rect x="0" y="0" width="118" height="32" rx="16" fill="#6366f1" fill-opacity="0.16" stroke="#818cf8" stroke-opacity="0.35"/>
+      <text x="59" y="21" text-anchor="middle" fill="#c7d2fe">Dashboard</text>
+    </g>
+    <g transform="translate(210, 356)">
+      <rect x="0" y="0" width="112" height="32" rx="16" fill="#ec4899" fill-opacity="0.16" stroke="#f472b6" stroke-opacity="0.35"/>
+      <text x="56" y="21" text-anchor="middle" fill="#fbcfe8">Budgeting</text>
+    </g>
+    <g transform="translate(332, 356)">
+      <rect x="0" y="0" width="150" height="32" rx="16" fill="#0ea5e9" fill-opacity="0.16" stroke="#38bdf8" stroke-opacity="0.35"/>
+      <text x="75" y="21" text-anchor="middle" fill="#bae6fd">Transactions</text>
+    </g>
+    <g transform="translate(492, 356)">
+      <rect x="0" y="0" width="92" height="32" rx="16" fill="#22c55e" fill-opacity="0.16" stroke="#4ade80" stroke-opacity="0.35"/>
+      <text x="46" y="21" text-anchor="middle" fill="#bbf7d0">Goals</text>
+    </g>
+    <g transform="translate(594, 356)">
+      <rect x="0" y="0" width="150" height="32" rx="16" fill="#f59e0b" fill-opacity="0.16" stroke="#fbbf24" stroke-opacity="0.35"/>
+      <text x="75" y="21" text-anchor="middle" fill="#fde68a">Salary &amp; Tax</text>
+    </g>
+  </g>
+</svg>
