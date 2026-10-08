@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs / env
+*.log
+.env
+.env.*
+
+# Node (not required for this project, but harmless)
+node_modules/

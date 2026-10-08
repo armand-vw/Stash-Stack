@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Stash-Stack — a private, offline-first personal budgeting and financial management dashboard." />
+<meta name="theme-color" content="#020617" />
+<title>Stash-Stack · Personal Finance Dashboard</title>
+
+<!-- Prevent theme flash before Tailwind paints -->
+<script>
+  try {
+    var __s = JSON.parse(localStorage.getItem('stashstack.v1') || '{}');
+    if (__s && __s.settings && __s.settings.theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    }
+  } catch (e) {}
+</script>
+
+<!-- Tailwind CSS (Play CDN) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        },
+        colors: {
+          brand: {
+            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+            400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+            800: '#3730a3', 900: '#312e81',
+          },
+        },
+        keyframes: {
+          'fade-in': { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+          'slide-up': { '0%': { opacity: 0, transform: 'translateY(8px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+          'toast-in': { '0%': { opacity: 0, transform: 'translateX(16px)' }, '100%': { opacity: 1, transform: 'translateX(0)' } },
+        },
+        animation: {
+          'fade-in': 'fade-in .15s ease-out',
+          'slide-up': 'slide-up .2s ease-out',
+          'toast-in': 'toast-in .2s ease-out',
+        },
+      },
+    },
+  };
+</script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<style type="text/tailwindcss">
+  @layer components {
+    .card { @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm; }
+    .card-pad { @apply p-5 sm:p-6; }
+
+    .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 disabled:opacity-50 disabled:pointer-events-none; }
+    .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-500 shadow-sm shadow-brand-900/20; }
+    .btn-soft { @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700; }
+    .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800; }
+    .btn-danger { @apply btn bg-rose-600 text-white hover:bg-rose-500; }
+    .btn-icon { @apply inline-flex items-center justify-center w-9 h-9 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white transition; }
+    .btn-xs { @apply px-2.5 py-1.5 text-xs rounded-lg; }
+
+    .label { @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5; }
+    .input { @apply w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950/60
+                    px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400
+                    focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500 transition; }
+    .select { @apply input appearance-none bg-no-repeat pr-9; }
+
+    .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold; }
+
+    .nav-link { @apply flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-500
+                       hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/70 transition cursor-pointer; }
+    .nav-link.active { @apply bg-brand-600 text-white hover:bg-brand-600 hover:text-white shadow-sm shadow-brand-900/20; }
+
+    .progress { @apply h-2.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800; }
+    .progress-bar { @apply h-full rounded-full transition-all duration-500; }
+
+    .modal-backdrop { @apply fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in; }
+    .modal-panel { @apply w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-2xl shadow-2xl animate-slide-up; }
+
+    .table-th { @apply text-left text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-4 py-3; }
+    .table-td { @apply px-4 py-3 text-sm text-slate-700 dark:text-slate-200 align-middle; }
+  }
+</style>
+
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; }
+  body { font-feature-settings: 'cv02','cv03','cv04','cv11'; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(100,116,139,.35); border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.6); background-clip: content-box; }
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6; }
+  .dark input[type="date"]::-webkit-calendar-picker-indicator,
+  .dark input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+</head>
+
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 antialiased">
+  <div id="app" class="min-h-screen">
+
+    <!-- Mobile top bar -->
+    <header class="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+      <button id="menu-toggle" class="btn-icon" aria-label="Open menu">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <a href="#dashboard" class="flex items-center gap-2 font-extrabold tracking-tight">
+        <span class="grid place-items-center w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-fuchsia-500 text-white text-sm">S</span>
+        Stash-Stack
+      </a>
+      <button id="theme-toggle-mobile" class="btn-icon" aria-label="Toggle theme"></button>
+    </header>
+
+    <div class="lg:flex">
+      <!-- Sidebar -->
+      <aside id="sidebar"
+        class="fixed lg:sticky top-0 left-0 z-40 h-[100dvh] w-72 shrink-0 -translate-x-full lg:translate-x-0
+               transition-transform duration-300 ease-out bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
+               flex flex-col">
+        <div class="hidden lg:flex items-center gap-2.5 px-6 h-[68px] border-b border-slate-200 dark:border-slate-800">
+          <span class="grid place-items-center w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-fuchsia-500 text-white font-extrabold">S</span>
+          <div class="leading-tight">
+            <p class="font-extrabold tracking-tight">Stash-Stack</p>
+            <p class="text-[11px] text-slate-400 font-medium">Personal Finance</p>
+          </div>
+        </div>
+        <div class="lg:hidden flex items-center justify-between px-5 h-[60px] border-b border-slate-200 dark:border-slate-800">
+          <span class="font-extrabold tracking-tight">Stash-Stack</span>
+          <button id="menu-close" class="btn-icon" aria-label="Close menu">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        </div>
+
+        <nav id="nav" class="flex-1 overflow-y-auto no-scrollbar px-3 py-4 space-y-1"></nav>
+
+        <div class="px-3 pb-4 space-y-3 border-t border-slate-200 dark:border-slate-800 pt-4">
+          <div>
+            <p class="px-2 mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">Data</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button data-action="export-json" class="btn-soft btn-xs w-full">JSON</button>
+              <button data-action="export-csv" class="btn-soft btn-xs w-full">CSV</button>
+              <button data-action="import-json" class="btn-soft btn-xs w-full">Import</button>
+              <button data-action="sample" class="btn-soft btn-xs w-full">Sample</button>
+              <button data-action="reset" class="btn-xs w-full col-span-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">Reset all</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <select id="currency-select" class="select text-xs py-2" aria-label="Currency"></select>
+            <button id="theme-toggle" class="btn-soft btn-xs py-2" aria-label="Toggle theme"></button>
+          </div>
+        </div>
+      </aside>
+
+      <div id="sidebar-overlay" class="fixed inset-0 z-30 bg-slate-950/50 backdrop-blur-sm hidden lg:hidden"></div>
+
+      <!-- Main -->
+      <main class="flex-1 min-w-0">
+        <div id="view" class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8"></div>
+        <footer class="px-4 sm:px-6 lg:px-8 pb-8 pt-2 text-center text-xs text-slate-400">
+          Stash-Stack · data stored locally in your browser
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" class="fixed z-[60] bottom-4 right-4 flex flex-col gap-2 items-end"></div>
+  <input type="file" id="import-file" accept="application/json,.json" class="hidden" />
+
+<script>
+/* ============================================================================
+   Stash-Stack — single-file personal finance dashboard
+   Sections: Constants · State · Utils · UI primitives · Domain · Salary engine
+             Router · Views · Charts · Actions · Init
+   ========================================================================== */
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ *
+   * 1. CONSTANTS
+   * ------------------------------------------------------------------ */
+  const STORAGE_KEY = 'stashstack.v1';
+
+  const COLORS = ['#6366f1','#f59e0b','#10b981','#ec4899','#0ea5e9','#8b5cf6','#14b8a6','#ef4444','#84cc16','#f97316','#a855f7','#22d3ee'];
+
+  const DEFAULT_CATEGORIES = [
+    { name: 'Salary',        type: 'income',  group: 'income',  target: 0,    color: '#10b981', icon: '💼' },
+    { name: 'Freelance',     type: 'income',  group: 'income',  target: 0,    color: '#22d3ee', icon: '🧑‍💻' },
+    { name: 'Rent / Bond',   type: 'expense', group: 'needs',   target: 9500, color: '#6366f1', icon: '🏠' },
+    { name: 'Groceries',     type: 'expense', group: 'needs',   target: 4000, color: '#f59e0b', icon: '🛒' },
+    { name: 'Transport',     type: 'expense', group: 'needs',   target: 2500, color: '#0ea5e9', icon: '🚗' },
+    { name: 'Utilities',     type: 'expense', group: 'needs',   target: 1800, color: '#f43f5e', icon: '💡' },
+    { name: 'Insurance',     type: 'expense', group: 'needs',   target: 1500, color: '#a855f7', icon: '🛡️' },
+    { name: 'Dining Out',    type: 'expense', group: 'wants',   target: 1500, color: '#ec4899', icon: '🍔' },
+    { name: 'Entertainment', type: 'expense', group: 'wants',   target: 1000, color: '#8b5cf6', icon: '🎬' },
+    { name: 'Shopping',      type: 'expense', group: 'wants',   target: 1200, color: '#14b8a6', icon: '🛍️' },
+    { name: 'Subscriptions', type: 'expense', group: 'wants',   target: 600,  color: '#ef4444', icon: '📺' },
+    { name: 'Emergency Fund',type: 'expense', group: 'savings', target: 3000, color: '#22c55e', icon: '🆘' },
+    { name: 'Investments',   type: 'expense', group: 'savings', target: 5000, color: '#84cc16', icon: '📈' },
+  ];
+
+  const GROUPS = {
+    needs:   { label: 'Needs',   color: '#6366f1' },
+    wants:   { label: 'Wants',   color: '#ec4899' },
+    savings: { label: 'Savings', color: '#22c55e' },
+    income:  { label: 'Income',  color: '#10b981' },
+  };
+
+  /* Country tax presets — all values editable in-app.
+     Bands are annual, progressive. `upTo: null` = no upper bound.
+     Contributions support rate %, optional annual threshold & cap (with period). */
+  const TAX_PRESETS = {
+    ZA: {
+      country: 'ZA', label: 'South Africa · PAYE 2024/25', defaultGross: 55000,
+      allowance: 0, rebate: 17235, surcharge: 0,
+      bands: [
+        { upTo: 237100,  rate: 18 },
+        { upTo: 370500,  rate: 26 },
+        { upTo: 512800,  rate: 31 },
+        { upTo: 673000,  rate: 36 },
+        { upTo: 857900,  rate: 39 },
+        { upTo: 1817000, rate: 41 },
+        { upTo: null,    rate: 45 },
+      ],
+      contributions: [
+        { name: 'UIF', rate: 1, threshold: 0, thresholdPeriod: 'year', cap: 17712, capPeriod: 'month', deductible: false },
+      ],
+    },
+    US: {
+      country: 'US', label: 'United States · Federal 2024 (single)', defaultGross: 6500,
+      allowance: 14600, rebate: 0, surcharge: 0,
+      bands: [
+        { upTo: 11600,  rate: 10 },
+        { upTo: 47150,  rate: 12 },
+        { upTo: 100525, rate: 22 },
+        { upTo: 191950, rate: 24 },
+        { upTo: 243725, rate: 32 },
+        { upTo: 609350, rate: 35 },
+        { upTo: null,   rate: 37 },
+      ],
+      contributions: [
+        { name: 'Social Security', rate: 6.2,  threshold: 0, thresholdPeriod: 'year', cap: 168600, capPeriod: 'year', deductible: false },
+        { name: 'Medicare',        rate: 1.45, threshold: 0, thresholdPeriod: 'year', cap: null,   capPeriod: 'year', deductible: false },
+      ],
+    },
+    UK: {
+      country: 'UK', label: 'United Kingdom · Income Tax 2024/25', defaultGross: 4000,
+      allowance: 12570, rebate: 0, surcharge: 0,
+      bands: [
+        { upTo: 37700,  rate: 20 },
+        { upTo: 125140, rate: 40 },
+        { upTo: null,   rate: 45 },
+      ],
+      contributions: [
+        { name: 'National Insurance', rate: 8, threshold: 12570, thresholdPeriod: 'year', cap: 50270, capPeriod: 'year', deductible: false },
+        { name: 'NI (upper)',         rate: 2, threshold: 50270, thresholdPeriod: 'year', cap: null,  capPeriod: 'year', deductible: false },
+      ],
+    },
+    BE: {
+      country: 'BE', label: 'Belgium · Income Tax 2024', defaultGross: 4000,
+      allowance: 10160, rebate: 0, surcharge: 7,
+      bands: [
+        { upTo: 15200, rate: 25 },
+        { upTo: 26830, rate: 40 },
+        { upTo: 46440, rate: 45 },
+        { upTo: null,  rate: 50 },
+      ],
+      contributions: [
+        { name: 'Social security (RSZ)', rate: 13.07, threshold: 0, thresholdPeriod: 'year', cap: null, capPeriod: 'year', deductible: true },
+      ],
+    },
+  };
+
+  const CURRENCY_PROFILES = {
+    ZAR: { code: 'ZAR', locale: 'en-ZA', symbol: 'R',  country: 'ZA', name: 'R' },
+    USD: { code: 'USD', locale: 'en-US', symbol: '$',  country: 'US', name: 'USD' },
+    GBP: { code: 'GBP', locale: 'en-GB', symbol: '£',  country: 'UK', name: 'GBP' },
+    EUR: { code: 'EUR', locale: 'nl-BE', symbol: '€',  country: 'BE', name: 'EUR' },
+  };
+
+  const ICON_PATHS = {
+    dashboard: '<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>',
+    budget:    '<path d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/>',
+    transactions: '<path d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>',
+    goals:     '<path d="M3 3v18m0-18h13l-2 4 2 4H3"/>',
+    salary:    '<path d="M9 7h6m-6 4h6m-6 3h3m-6 6h12a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z"/>',
+    plus:      '<path d="M12 4v16m8-8H4"/>',
+    search:    '<path d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>',
+    trash:     '<path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/>',
+    edit:      '<path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>',
+    arrowUp:   '<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>',
+    arrowDown: '<path d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>',
+    wallet:    '<path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>',
+    target:    '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  };
+
+  const NAV = [
+    { id: 'dashboard',    label: 'Dashboard',    icon: 'dashboard' },
+    { id: 'budget',       label: 'Budgeting',    icon: 'budget' },
+    { id: 'transactions', label: 'Transactions', icon: 'transactions' },
+    { id: 'goals',        label: 'Goals',        icon: 'goals' },
+    { id: 'salary',       label: 'Salary',       icon: 'salary' },
+  ];
+
+  /* ------------------------------------------------------------------ *
+   * 2. STATE
+   * ------------------------------------------------------------------ */
+  let state = null;
+  const ui = {
+    txPage: 1,
+    dashboardMonth: null,
+    charts: { expense: null, trend: null },
+  };
+
+  function defaultSalary(key) {
+    const p = TAX_PRESETS[key] || TAX_PRESETS.ZA;
+    return {
+      presetKey: key,
+      gross: p.defaultGross || 0,
+      period: 'monthly',
+      allowance: p.allowance,
+      rebate: p.rebate,
+      surcharge: p.surcharge,
+      bands: p.bands.map((b) => ({ ...b })),
+      contributions: p.contributions.map((c) => ({ ...c })),
+      deductions: [],
+    };
+  }
+
+  function freshState() {
+    return {
+      version: 1,
+      settings: { theme: 'dark', currency: 'ZAR', locale: 'en-ZA', salary: defaultSalary('ZA') },
+      categories: DEFAULT_CATEGORIES.map((c) => ({ id: uid(), ...c })),
+      transactions: [],
+      goals: [],
+      budgetRule: { mode: '50/30/20', needs: 50, wants: 30, savings: 20, baselineIncome: 0 },
+    };
+  }
+
+  function mergeState(p) {
+    const base = freshState();
+    const s = Object.assign({}, base, p);
+    s.settings = Object.assign({}, base.settings, p.settings || {});
+    s.budgetRule = Object.assign({}, base.budgetRule, p.budgetRule || {});
+    const sk = (s.settings.salary && s.settings.salary.presetKey) || 'ZA';
+    s.settings.salary = Object.assign(defaultSalary(TAX_PRESETS[sk] ? sk : 'ZA'), s.settings.salary || {});
+    if (!Array.isArray(s.categories) || !s.categories.length) s.categories = base.categories;
+    if (!Array.isArray(s.transactions)) s.transactions = [];
+    if (!Array.isArray(s.goals)) s.goals = [];
+    if (!CURRENCY_PROFILES[s.settings.currency]) s.settings.currency = 'ZAR';
+    return s;
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return mergeState(JSON.parse(raw));
+    } catch (e) { console.warn('State load failed, starting fresh.', e); }
+    return freshState();
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error(e);
+      toast('Could not save to localStorage (storage full?)', 'error');
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 3. UTILS
+   * ------------------------------------------------------------------ */
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
+  function clamp(n, min, max) { return Math.min(Math.max(n, min), max); }
+  function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function todayISO() { return isoDate(new Date()); }
+  function ym(dateStr) { return (dateStr || '').slice(0, 7); }
+  function currentYM() { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); }
+  function addMonths(date, n) {
+    const d = new Date(date);
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + n);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(day, last));
+    return d;
+  }
+  function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
+  function monthLabel(key) {
+    const [y, m] = key.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
+  }
+  function shortMonthLabel(key) {
+    const [y, m] = key.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString(locale(), { month: 'short' });
+  }
+  function fmtDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString(locale(), { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  function locale() { return (state && state.settings.locale) || 'en-ZA'; }
+  function currencyProfile() { return CURRENCY_PROFILES[state.settings.currency] || CURRENCY_PROFILES.ZAR; }
+  function money(n, decimals) {
+    const p = currencyProfile();
+    try {
+      return new Intl.NumberFormat(p.locale, {
+        style: 'currency', currency: p.code,
+        minimumFractionDigits: decimals == null ? 2 : decimals,
+        maximumFractionDigits: decimals == null ? 2 : decimals,
+      }).format(Number.isFinite(n) ? n : 0);
+    } catch (e) {
+      return p.symbol + ' ' + round2(num(n)).toLocaleString();
+    }
+  }
+  function compactMoney(n) {
+    const p = currencyProfile();
+    try {
+      return new Intl.NumberFormat(p.locale, { style: 'currency', currency: p.code, notation: 'compact', maximumFractionDigits: 1 }).format(n);
+    } catch (e) { return money(n, 0); }
+  }
+  function pct(n, decimals) { return (Number.isFinite(n) ? n : 0).toFixed(decimals == null ? 1 : decimals) + '%'; }
+  function esc(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function icon(name, cls) {
+    return '<svg class="' + (cls || 'w-5 h-5') + '" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">' + (ICON_PATHS[name] || '') + '</svg>';
+  }
+  function sum(arr, fn) { return arr.reduce((a, x) => a + (fn ? fn(x) : x), 0); }
+  function monthTx(key) { return state.transactions.filter((t) => ym(t.date) === key); }
+  function sumMonth(key, type) {
+    return sum(monthTx(key).filter((t) => t.type === type), (t) => num(t.amount));
+  }
+  function catOf(id) { return state.categories.find((c) => c.id === id) || null; }
+  function catName(id) { const c = catOf(id); return c ? c.name : 'Uncategorised'; }
+  function catColor(id) { const c = catOf(id); return c ? c.color : '#64748b'; }
+  function last6Months() {
+    const out = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      out.push(d.getFullYear() + '-' + pad2(d.getMonth() + 1));
+    }
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 4. UI PRIMITIVES (toast, modal)
+   * ------------------------------------------------------------------ */
+  function toast(message, type) {
+    const colors = {
+      success: 'border-emerald-500/40 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200',
+      error:   'border-rose-500/40 bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200',
+      info:    'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200',
+    };
+    const el = document.createElement('div');
+    el.className = 'animate-toast-in max-w-xs rounded-xl border px-4 py-3 text-sm font-medium shadow-lg ' + (colors[type] || colors.info);
+    el.textContent = message;
+    document.getElementById('toast-root').appendChild(el);
+    setTimeout(() => {
+      el.style.transition = 'opacity .3s, transform .3s';
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(12px)';
+      setTimeout(() => el.remove(), 300);
+    }, 3200);
+  }
+
+  let modalCleanup = null;
+  function openModal(opts) {
+    const root = document.getElementById('modal-root');
+    const footer = opts.footer !== undefined
+      ? '<div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-800">' + opts.footer + '</div>'
+      : '';
+    root.innerHTML =
+      '<div class="modal-backdrop" data-modal-backdrop>' +
+        '<div class="modal-panel" role="dialog" aria-modal="true">' +
+          '<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">' +
+            '<h3 class="text-base font-bold">' + esc(opts.title || '') + '</h3>' +
+            '<button type="button" class="btn-icon" data-modal-close aria-label="Close">' +
+              '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
+            '</button>' +
+          '</div>' +
+          '<form id="modal-form" novalidate>' +
+            '<div class="px-6 py-5">' + (opts.body || '') + '</div>' +
+            (opts.footer === undefined
+              ? '<div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900">' +
+                  '<button type="button" class="btn-soft" data-modal-close>Cancel</button>' +
+                  '<button type="submit" class="btn-primary">' + esc(opts.submitLabel || 'Save') + '</button>' +
+                '</div>'
+              : '') +
+          '</form>' +
+          (opts.footer !== undefined ? footer : '') +
+        '</div>' +
+      '</div>';
+
+    const form = document.getElementById('modal-form');
+    function close() {
+      root.innerHTML = '';
+      document.removeEventListener('keydown', onKey);
+      if (modalCleanup) { modalCleanup(); modalCleanup = null; }
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    root.querySelectorAll('[data-modal-close]').forEach((b) => b.addEventListener('click', close));
+    const backdrop = root.querySelector('[data-modal-backdrop]');
+    backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop) close(); });
+    if (form && opts.onSubmit) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form).entries());
+        const result = opts.onSubmit(data, form);
+        if (result !== false) close();
+      });
+    }
+    modalCleanup = close;
+    const first = root.querySelector('input:not([type=hidden]), select, textarea');
+    if (first) setTimeout(() => first.focus(), 50);
+    return { close };
+  }
+
+  function confirmModal(message, onConfirm, opts) {
+    opts = opts || {};
+    openModal({
+      title: opts.title || 'Please confirm',
+      body: '<p class="text-sm text-slate-600 dark:text-slate-300">' + esc(message) + '</p>',
+      submitLabel: opts.submitLabel || 'Confirm',
+      onSubmit: () => { onConfirm(); },
+    });
+  }
+
+  function progressColor(p) {
+    if (p > 100) return '#f43f5e';
+    if (p >= 80) return '#f59e0b';
+    return '#22c55e';
+  }
+
+  function emptyState(title, subtitle, actionHtml) {
+    return '<div class="flex flex-col items-center justify-center text-center py-14 px-6">' +
+      '<div class="grid place-items-center w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 mb-4">' + icon('wallet', 'w-7 h-7') + '</div>' +
+      '<p class="font-bold text-slate-700 dark:text-slate-200">' + esc(title) + '</p>' +
+      '<p class="text-sm text-slate-400 mt-1 max-w-sm">' + esc(subtitle) + '</p>' +
+      (actionHtml ? '<div class="mt-5">' + actionHtml + '</div>' : '') +
+      '</div>';
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 5. DOMAIN — recurring materialisation + CRUD
+   * ------------------------------------------------------------------ */
+  function materializeRecurring() {
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    let changed = false;
+    const originals = state.transactions.filter((t) => t.recurring && t.recurring !== 'none' && !t.parentId);
+    originals.forEach((tx) => {
+      const existing = new Set(state.transactions.filter((t) => t.parentId === tx.id).map((t) => t.date));
+      let cursor = new Date(tx.date + 'T00:00:00');
+      let guard = 0;
+      while (guard++ < 500) {
+        cursor = tx.recurring === 'monthly' ? addMonths(cursor, 1) : addDays(cursor, 7);
+        if (cursor > now) break;
+        const iso = isoDate(cursor);
+        if (existing.has(iso)) continue;
+        state.transactions.push({
+          id: uid(), date: iso, categoryId: tx.categoryId, type: tx.type,
+          amount: num(tx.amount), description: tx.description, recurring: 'none',
+          parentId: tx.id, auto: true,
+        });
+        existing.add(iso);
+        changed = true;
+      }
+    });
+    if (changed) save();
+  }
+
+  function addTransaction(data) {
+    state.transactions.push({
+      id: uid(),
+      date: data.date || todayISO(),
+      categoryId: data.categoryId,
+      type: data.type,
+      amount: round2(num(data.amount)),
+      description: (data.description || '').trim(),
+      recurring: data.recurring || 'none',
+    });
+    save();
+  }
+  function updateTransaction(id, data) {
+    const t = state.transactions.find((x) => x.id === id);
+    if (!t) return;
+    Object.assign(t, {
+      date: data.date, categoryId: data.categoryId, type: data.type,
+      amount: round2(num(data.amount)), description: (data.description || '').trim(),
+      recurring: data.recurring || 'none',
+    });
+    save();
+  }
+  function deleteTransaction(id) {
+    state.transactions = state.transactions.filter((t) => t.id !== id);
+    save();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 6. SALARY ENGINE
+   * ------------------------------------------------------------------ */
+  function toAnnual(v, period) { return period === 'month' ? num(v) * 12 : num(v); }
+
+  function computeSalary() {
+    const s = state.settings.salary;
+    const div = s.period === 'monthly' ? 12 : 1;
+    const annualGross = s.period === 'monthly' ? num(s.gross) * 12 : num(s.gross);
+
+    const contributions = (s.contributions || []).map((c) => {
+      const cap = (c.cap === null || c.cap === '' || c.cap === undefined) ? Infinity : toAnnual(c.cap, c.capPeriod);
+      const thr = (c.threshold === null || c.threshold === '' || c.threshold === undefined) ? 0 : toAnnual(c.threshold, c.thresholdPeriod);
+      const base = Math.max(0, Math.min(annualGross, cap) - thr);
+      const amount = base * num(c.rate) / 100;
+      return { name: c.name, rate: num(c.rate), deductible: !!c.deductible, amount };
+    });
+
+    const deductions = (s.deductions || []).map((d) => {
+      let amount;
+      if (d.type === 'percent') amount = annualGross * num(d.amount) / 100;
+      else amount = d.period === 'month' ? num(d.amount) * 12 : num(d.amount);
+      return { name: d.name, type: d.type, pretax: !!d.pretax, amount };
+    });
+
+    const deductibleContrib = sum(contributions.filter((c) => c.deductible), (c) => c.amount);
+    const pretaxDed = sum(deductions.filter((d) => d.pretax), (d) => d.amount);
+    const taxable = Math.max(0, annualGross - num(s.allowance) - deductibleContrib - pretaxDed);
+
+    let tax = 0, prev = 0, marginal = 0;
+    (s.bands || []).forEach((b) => {
+      const up = (b.upTo === null || b.upTo === '' || b.upTo === undefined) ? Infinity : num(b.upTo);
+      if (taxable > prev) {
+        const slice = Math.min(taxable, up) - prev;
+        tax += slice * num(b.rate) / 100;
+        marginal = num(b.rate);
+      }
+      prev = up;
+    });
+
+    tax = Math.max(0, tax - num(s.rebate));
+    const surcharge = tax * num(s.surcharge) / 100;
+    const totalTax = tax + surcharge;
+    const totalContrib = sum(contributions, (c) => c.amount);
+    const totalDeductions = sum(deductions, (d) => d.amount);
+    const net = annualGross - totalTax - totalContrib - totalDeductions;
+
+    return {
+      period: s.period,
+      gross: annualGross / div,
+      annualGross,
+      allowance: num(s.allowance) / div,
+      taxable: taxable / div,
+      tax: tax / div,
+      surcharge: surcharge / div,
+      totalTax: totalTax / div,
+      contributions: contributions.map((c) => ({ name: c.name, rate: c.rate, amount: c.amount / div })),
+      totalContrib: totalContrib / div,
+      deductions: deductions.map((d) => ({ name: d.name, amount: d.amount / div })),
+      totalDeductions: totalDeductions / div,
+      net: net / div,
+      effectiveRate: annualGross ? (totalTax / annualGross) * 100 : 0,
+      marginalRate: marginal,
+    };
+  }
+
+  function applyPreset(key) {
+    const p = TAX_PRESETS[key];
+    if (!p) return;
+    const s = state.settings.salary;
+    s.presetKey = key;
+    s.allowance = p.allowance;
+    s.rebate = p.rebate;
+    s.surcharge = p.surcharge;
+    s.bands = p.bands.map((b) => ({ ...b }));
+    s.contributions = p.contributions.map((c) => ({ ...c }));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 7. ROUTER / THEME / CURRENCY / SIDEBAR
+   * ------------------------------------------------------------------ */
+  function activeTab() {
+    const h = (location.hash || '#dashboard').replace('#', '');
+    return NAV.some((n) => n.id === h) ? h : 'dashboard';
+  }
+
+  function route() {
+    const tab = activeTab();
+    if (!ui.dashboardMonth) ui.dashboardMonth = currentYM();
+    document.querySelectorAll('.nav-link').forEach((a) => {
+      a.classList.toggle('active', a.dataset.tab === tab);
+    });
+    closeSidebar();
+    render();
+  }
+
+  function go(tab) { location.hash = '#' + tab; }
+
+  function render() {
+    const tab = activeTab();
+    const view = document.getElementById('view');
+    destroyCharts();
+    if (tab === 'dashboard') view.innerHTML = viewDashboard();
+    else if (tab === 'budget') view.innerHTML = viewBudget();
+    else if (tab === 'transactions') view.innerHTML = viewTransactions();
+    else if (tab === 'goals') view.innerHTML = viewGoals();
+    else if (tab === 'salary') view.innerHTML = viewSalary();
+    if (tab === 'dashboard') requestAnimationFrame(renderCharts);
+    window.scrollTo({ top: 0 });
+  }
+
+  function renderSidebar() {
+    const nav = document.getElementById('nav');
+    nav.innerHTML = NAV.map((n) =>
+      '<a href="#' + n.id + '" class="nav-link" data-tab="' + n.id + '">' + icon(n.icon) + '<span>' + n.label + '</span></a>'
+    ).join('');
+    const sel = document.getElementById('currency-select');
+    sel.innerHTML = Object.keys(CURRENCY_PROFILES).map((code) => {
+      const p = CURRENCY_PROFILES[code];
+      return '<option value="' + code + '"' + (state.settings.currency === code ? ' selected' : '') + '>' + p.symbol + ' ' + code + '</option>';
+    }).join('');
+    updateThemeButtons();
+  }
+
+  function updateThemeButtons() {
+    const dark = state.settings.theme === 'dark';
+    const label = dark ? '☀️ Light' : '🌙 Dark';
+    const a = document.getElementById('theme-toggle');
+    const b = document.getElementById('theme-toggle-mobile');
+    if (a) a.innerHTML = label;
+    if (b) b.innerHTML = dark
+      ? '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4l1.4-1.4"/></svg>'
+      : '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" stroke-linecap="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+  }
+
+  function toggleTheme() {
+    state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.classList.toggle('dark', state.settings.theme === 'dark');
+    save();
+    updateThemeButtons();
+    if (activeTab() === 'dashboard') { destroyCharts(); requestAnimationFrame(renderCharts); }
+  }
+
+  function updateChartTheme() {
+    if (!window.Chart) return;
+    const dark = state.settings.theme === 'dark';
+    Chart.defaults.color = dark ? '#94a3b8' : '#64748b';
+    Chart.defaults.borderColor = dark ? 'rgba(148,163,184,.12)' : 'rgba(100,116,139,.15)';
+  }
+
+  function applyCurrency(code) {
+    const p = CURRENCY_PROFILES[code];
+    if (!p) return;
+    state.settings.currency = code;
+    state.settings.locale = p.locale;
+    if (TAX_PRESETS[p.country]) applyPreset(p.country);
+    save();
+  }
+
+  function openSidebar() {
+    document.getElementById('sidebar').classList.remove('-translate-x-full');
+    document.getElementById('sidebar-overlay').classList.remove('hidden');
+  }
+  function closeSidebar() {
+    if (window.innerWidth < 1024) {
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('sidebar-overlay').classList.add('hidden');
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 8. VIEW: DASHBOARD
+   * ------------------------------------------------------------------ */
+  function kpiCard(label, value, sub, tone, iconName) {
+    const tones = {
+      brand: 'text-brand-500 bg-brand-500/10',
+      emerald: 'text-emerald-500 bg-emerald-500/10',
+      rose: 'text-rose-500 bg-rose-500/10',
+      sky: 'text-sky-500 bg-sky-500/10',
+    };
+    const t = tones[tone] || tones.brand;
+    return '<div class="card card-pad">' +
+      '<div class="flex items-start justify-between gap-3">' +
+        '<div class="min-w-0">' +
+          '<p class="text-xs font-semibold uppercase tracking-wide text-slate-400">' + esc(label) + '</p>' +
+          '<p class="mt-2 text-2xl font-extrabold tracking-tight truncate">' + value + '</p>' +
+          (sub ? '<p class="mt-1 text-xs text-slate-400 font-medium">' + sub + '</p>' : '') +
+        '</div>' +
+        '<div class="grid place-items-center w-10 h-10 rounded-xl shrink-0 ' + t + '">' + icon(iconName, 'w-5 h-5') + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function viewDashboard() {
+    const key = ui.dashboardMonth || currentYM();
+    const income = sumMonth(key, 'income');
+    const expenses = sumMonth(key, 'expense');
+    const net = income - expenses;
+    const savingsSpend = sum(monthTx(key).filter((t) => {
+      if (t.type !== 'expense') return false;
+      const c = catOf(t.categoryId);
+      return c && c.group === 'savings';
+    }), (t) => num(t.amount));
+    const savingsRate = income ? (savingsSpend / income) * 100 : 0;
+
+    const kpis =
+      '<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">' +
+        kpiCard('Income · ' + shortMonthLabel(key), money(income, 0), 'Earned this month', 'emerald', 'arrowUp') +
+        kpiCard('Expenses', money(expenses, 0), 'Spent this month', 'rose', 'arrowDown') +
+        kpiCard('Net Cash Flow', '<span class="' + (net >= 0 ? 'text-emerald-500' : 'text-rose-500') + '">' + money(net, 0) + '</span>', net >= 0 ? 'Surplus' : 'Deficit', 'brand', 'wallet') +
+        kpiCard('Savings Rate', pct(savingsRate, 1), 'Saved / income', 'sky', 'target') +
+      '</div>';
+
+    const recent = state.transactions.slice().sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6);
+    const recentHtml = recent.length
+      ? '<ul class="divide-y divide-slate-100 dark:divide-slate-800">' + recent.map((t) => {
+          const c = catOf(t.categoryId);
+          const isInc = t.type === 'income';
+          return '<li class="flex items-center gap-3 py-3">' +
+            '<span class="grid place-items-center w-9 h-9 rounded-lg text-base shrink-0" style="background:' + (c ? c.color : '#64748b') + '22">' + (c && c.icon ? c.icon : '💳') + '</span>' +
+            '<div class="min-w-0 flex-1">' +
+              '<p class="text-sm font-semibold truncate">' + esc(t.description || catName(t.categoryId)) + '</p>' +
+              '<p class="text-xs text-slate-400">' + esc(catName(t.categoryId)) + ' · ' + fmtDate(t.date) + '</p>' +
+            '</div>' +
+            '<span class="text-sm font-bold ' + (isInc ? 'text-emerald-500' : 'text-rose-500') + '">' + (isInc ? '+' : '−') + money(t.amount, 2) + '</span>' +
+          '</li>';
+        }).join('') + '</ul>'
+      : emptyState('No transactions yet', 'Log an income or expense to see it here.', '<button data-action="add-tx" data-type="expense" class="btn-primary">Add transaction</button>');
+
+    const monthOptions = (() => {
+      const set = new Set(state.transactions.map((t) => ym(t.date)));
+      set.add(currentYM());
+      return Array.from(set).sort().reverse().map((m) =>
+        '<option value="' + m + '"' + (m === key ? ' selected' : '') + '>' + monthLabel(m) + '</option>'
+      ).join('');
+    })();
+
+    return '' +
+      '<div class="flex flex-wrap items-center justify-between gap-4 mb-6">' +
+        '<div>' +
+          '<h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Dashboard</h1>' +
+          '<p class="text-sm text-slate-400 mt-0.5">Your money at a glance.</p>' +
+        '</div>' +
+        '<div class="flex items-center gap-2 flex-wrap">' +
+          '<input type="month" id="dash-month" class="input py-2 w-auto" value="' + key + '" />' +
+          '<button data-action="goto" data-tab="goals" class="btn-soft">' + icon('goals', 'w-4 h-4') + '<span class="hidden sm:inline">Goals</span></button>' +
+          '<button data-action="add-tx" data-type="income" class="btn-soft">' + icon('arrowUp', 'w-4 h-4') + '<span class="hidden sm:inline">Income</span></button>' +
+          '<button data-action="add-tx" data-type="expense" class="btn-primary">' + icon('plus', 'w-4 h-4') + '<span class="hidden sm:inline">Expense</span></button>' +
+        '</div>' +
+      '</div>' +
+      kpis +
+      '<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4">' +
+        '<div class="card card-pad lg:col-span-3">' +
+          '<div class="flex items-center justify-between mb-4">' +
+            '<h2 class="font-bold">Income vs Expenses</h2>' +
+            '<span class="text-xs text-slate-400">Last 6 months</span>' +
+          '</div>' +
+          '<div class="h-64"><canvas id="chart-trend"></canvas></div>' +
+        '</div>' +
+        '<div class="card card-pad lg:col-span-2">' +
+          '<div class="flex items-center justify-between mb-4">' +
+            '<h2 class="font-bold">Expense Breakdown</h2>' +
+            '<span class="text-xs text-slate-400">' + esc(shortMonthLabel(key)) + '</span>' +
+          '</div>' +
+          '<div class="h-64"><canvas id="chart-expense"></canvas></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card card-pad mt-4">' +
+        '<div class="flex items-center justify-between mb-2">' +
+          '<h2 class="font-bold">Recent Transactions</h2>' +
+          '<button data-action="goto" data-tab="transactions" class="text-xs font-semibold text-brand-500 hover:text-brand-400">View all →</button>' +
+        '</div>' +
+        recentHtml +
+      '</div>';
+  }
+
+  function destroyCharts() {
+    if (ui.charts.expense) { ui.charts.expense.destroy(); ui.charts.expense = null; }
+    if (ui.charts.trend) { ui.charts.trend.destroy(); ui.charts.trend = null; }
+  }
+
+  function renderCharts() {
+    if (!window.Chart) return;
+    updateChartTheme();
+    const key = ui.dashboardMonth || currentYM();
+
+    // Doughnut
+    const tx = monthTx(key).filter((t) => t.type === 'expense');
+    const byCat = {};
+    tx.forEach((t) => { byCat[t.categoryId] = (byCat[t.categoryId] || 0) + num(t.amount); });
+    const entries = Object.entries(byCat).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    const doughCanvas = document.getElementById('chart-expense');
+    if (doughCanvas) {
+      if (!entries.length) {
+        doughCanvas.parentElement.innerHTML = emptyState('No expenses', 'No spending recorded for ' + monthLabel(key) + '.');
+      } else {
+        ui.charts.expense = new Chart(doughCanvas, {
+          type: 'doughnut',
+          data: {
+            labels: entries.map(([id]) => catName(id)),
+            datasets: [{
+              data: entries.map(([, v]) => round2(v)),
+              backgroundColor: entries.map(([id]) => catColor(id)),
+              borderWidth: 0,
+              hoverOffset: 6,
+            }],
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false, cutout: '62%',
+            plugins: {
+              legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11 } } },
+              tooltip: { callbacks: { label: (c) => ' ' + c.label + ': ' + money(c.raw, 2) } },
+            },
+          },
+        });
+      }
+    }
+
+    // Trend bar
+    const months = last6Months();
+    const trendCanvas = document.getElementById('chart-trend');
+    if (trendCanvas) {
+      const inc = months.map((m) => round2(sumMonth(m, 'income')));
+      const exp = months.map((m) => round2(sumMonth(m, 'expense')));
+      ui.charts.trend = new Chart(trendCanvas, {
+        type: 'bar',
+        data: {
+          labels: months.map(shortMonthLabel),
+          datasets: [
+            { label: 'Income', data: inc, backgroundColor: '#10b981', borderRadius: 6, maxBarThickness: 26 },
+            { label: 'Expenses', data: exp, backgroundColor: '#f43f5e', borderRadius: 6, maxBarThickness: 26 },
+          ],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 11 } } },
+            tooltip: { callbacks: { label: (c) => ' ' + c.dataset.label + ': ' + money(c.raw, 0) } },
+          },
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, grid: { drawBorder: false }, ticks: { callback: (v) => compactMoney(v) } },
+          },
+        },
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 9. VIEW: BUDGET
+   * ------------------------------------------------------------------ */
+  function viewBudget() {
+    const key = currentYM();
+    const rule = state.budgetRule;
+    const monthIncome = sumMonth(key, 'income');
+    const baseline = num(rule.baselineIncome) > 0 ? num(rule.baselineIncome) : monthIncome;
+    const active = rule.mode === '50/30/20' ? { needs: 50, wants: 30, savings: 20 } : { needs: num(rule.needs), wants: num(rule.wants), savings: num(rule.savings) };
+    const totalPct = active.needs + active.wants + active.savings;
+
+    const groupSpend = { needs: 0, wants: 0, savings: 0 };
+    monthTx(key).filter((t) => t.type === 'expense').forEach((t) => {
+      const c = catOf(t.categoryId);
+      if (c && groupSpend[c.group] !== undefined) groupSpend[c.group] += num(t.amount);
+    });
+
+    const ruleCard =
+      '<div class="card card-pad mb-4">' +
+        '<div class="flex flex-wrap items-center justify-between gap-3 mb-5">' +
+          '<div>' +
+            '<h2 class="font-bold text-lg">Allocation Rule</h2>' +
+            '<p class="text-sm text-slate-400">Baseline: <span class="font-semibold text-slate-600 dark:text-slate-300">' + money(baseline, 0) + '</span>' + (num(rule.baselineIncome) > 0 ? ' (set)' : ' (from income)') + '</p>' +
+          '</div>' +
+          '<div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1">' +
+            '<button data-action="rule-mode" data-mode="50/30/20" class="px-3.5 py-1.5 text-xs font-bold rounded-lg ' + (rule.mode === '50/30/20' ? 'bg-white dark:bg-slate-900 shadow-sm' : 'text-slate-500') + '">50 / 30 / 20</button>' +
+            '<button data-action="rule-mode" data-mode="custom" class="px-3.5 py-1.5 text-xs font-bold rounded-lg ' + (rule.mode === 'custom' ? 'bg-white dark:bg-slate-900 shadow-sm' : 'text-slate-500') + '">Custom</button>' +
+          '</div>' +
+        '</div>' +
+        (rule.mode === 'custom'
+          ? '<div class="grid grid-cols-3 gap-3 mb-5">' +
+              '<div><label class="label">Needs %</label><input type="number" min="0" max="100" data-rule="needs" class="input" value="' + num(rule.needs) + '" /></div>' +
+              '<div><label class="label">Wants %</label><input type="number" min="0" max="100" data-rule="wants" class="input" value="' + num(rule.wants) + '" /></div>' +
+              '<div><label class="label">Savings %</label><input type="number" min="0" max="100" data-rule="savings" class="input" value="' + num(rule.savings) + '" /></div>' +
+            '</div>' +
+            (Math.abs(totalPct - 100) > 0.01 ? '<p class="text-xs font-semibold text-amber-500 mb-4">Allocations total ' + pct(totalPct, 0) + ' — aim for 100%.</p>' : '')
+          : '') +
+        '<div class="space-y-4">' +
+          ['needs', 'wants', 'savings'].map((g) => {
+            const target = baseline * active[g] / 100;
+            const spent = groupSpend[g];
+            const p = target ? (spent / target) * 100 : (spent ? 100 : 0);
+            const col = progressColor(p);
+            return '<div>' +
+              '<div class="flex items-center justify-between text-sm mb-1.5">' +
+                '<span class="font-semibold flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:' + GROUPS[g].color + '"></span>' + GROUPS[g].label + ' <span class="text-slate-400 font-normal">' + active[g] + '%</span></span>' +
+                '<span class="text-slate-500 dark:text-slate-400">' + money(spent, 0) + ' <span class="text-slate-300 dark:text-slate-600">/ ' + money(target, 0) + '</span></span>' +
+              '</div>' +
+              '<div class="progress"><div class="progress-bar" style="width:' + clamp(p, 0, 100) + '%;background:' + col + '"></div></div>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+
+    const cats = state.categories.filter((c) => c.type === 'expense');
+    const spendByCat = {};
+    monthTx(key).filter((t) => t.type === 'expense').forEach((t) => { spendByCat[t.categoryId] = (spendByCat[t.categoryId] || 0) + num(t.amount); });
+
+    const catRows = cats.length
+      ? '<div class="divide-y divide-slate-100 dark:divide-slate-800">' + cats.map((c) => {
+          const spent = spendByCat[c.id] || 0;
+          const target = num(c.target);
+          const grp = GROUPS[c.group] || GROUPS.needs;
+          const p = target ? (spent / target) * 100 : (spent ? 100 : 0);
+          const col = progressColor(p);
+          return '<div class="py-3.5 flex items-center gap-4 flex-wrap sm:flex-nowrap">' +
+            '<span class="grid place-items-center w-10 h-10 rounded-xl text-lg shrink-0" style="background:' + c.color + '22">' + c.icon + '</span>' +
+            '<div class="min-w-0 flex-1">' +
+              '<div class="flex items-center gap-2">' +
+                '<p class="font-semibold truncate">' + esc(c.name) + '</p>' +
+                '<span class="badge text-[10px]" style="background:' + grp.color + '22;color:' + grp.color + '">' + grp.label + '</span>' +
+              '</div>' +
+              '<div class="progress mt-2 max-w-md"><div class="progress-bar" style="width:' + clamp(p, 0, 100) + '%;background:' + col + '"></div></div>' +
+            '</div>' +
+            '<div class="flex items-center gap-3 sm:gap-4 shrink-0">' +
+              '<div class="text-right">' +
+                '<p class="text-sm font-bold">' + money(spent, 0) + '</p>' +
+                '<p class="text-[11px] text-slate-400">of ' + (target ? money(target, 0) : 'no target') + '</p>' +
+              '</div>' +
+              '<div class="w-20"><input type="number" min="0" step="50" data-target="' + c.id + '" class="input py-2 text-sm text-right" value="' + target + '" title="Monthly target" /></div>' +
+              '<div class="flex">' +
+                '<button class="btn-icon" data-action="edit-category" data-id="' + c.id + '" title="Edit">' + icon('edit', 'w-4 h-4') + '</button>' +
+                '<button class="btn-icon hover:text-rose-500" data-action="delete-category" data-id="' + c.id + '" title="Delete">' + icon('trash', 'w-4 h-4') + '</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>'
+      : emptyState('No expense categories', 'Add a category to start budgeting.', '<button data-action="add-category" class="btn-primary">Add category</button>');
+
+    return '' +
+      '<div class="flex flex-wrap items-center justify-between gap-4 mb-6">' +
+        '<div>' +
+          '<h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Budgeting</h1>' +
+          '<p class="text-sm text-slate-400 mt-0.5">Plan your month with targets and categories.</p>' +
+        '</div>' +
+        '<button data-action="add-category" class="btn-primary">' + icon('plus', 'w-4 h-4') + 'New category</button>' +
+      '</div>' +
+      ruleCard +
+      '<div class="card card-pad">' +
+        '<div class="flex items-center justify-between mb-2">' +
+          '<h2 class="font-bold text-lg">Categories</h2>' +
+          '<span class="text-xs text-slate-400">' + monthLabel(key) + '</span>' +
+        '</div>' +
+        catRows +
+      '</div>';
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 10. VIEW: TRANSACTIONS
+   * ------------------------------------------------------------------ */
+  function txFilters() {
+    return {
+      search: (document.getElementById('tx-search') || {}).value || '',
+      type: (document.getElementById('tx-type') || {}).value || 'all',
+      category: (document.getElementById('tx-cat') || {}).value || 'all',
+      from: (document.getElementById('tx-from') || {}).value || '',
+      to: (document.getElementById('tx-to') || {}).value || '',
+      sort: (document.getElementById('tx-sort') || {}).value || 'date-desc',
+    };
+  }
+
+  function filteredTx() {
+    const f = txFilters();
+    let list = state.transactions.slice();
+    if (f.search) {
+      const q = f.search.toLowerCase();
+      list = list.filter((t) => (t.description || '').toLowerCase().includes(q) || catName(t.categoryId).toLowerCase().includes(q));
+    }
+    if (f.type !== 'all') list = list.filter((t) => t.type === f.type);
+    if (f.category !== 'all') list = list.filter((t) => t.categoryId === f.category);
+    if (f.from) list = list.filter((t) => t.date >= f.from + '-01');
+    if (f.to) {
+      const [y, m] = f.to.split('-').map(Number);
+      const last = new Date(y, m, 0).getDate();
+      list = list.filter((t) => t.date <= f.to + '-' + pad2(last));
+    }
+    const [field, dir] = f.sort.split('-');
+    list.sort((a, b) => {
+      let r;
+      if (field === 'amount') r = num(a.amount) - num(b.amount);
+      else r = (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      return dir === 'desc' ? -r : r;
+    });
+    return list;
+  }
+
+  function viewTransactions() {
+    const cats = state.categories.slice().sort((a, b) => a.name.localeCompare(b.name));
+    return '' +
+      '<div class="flex flex-wrap items-center justify-between gap-4 mb-6">' +
+        '<div>' +
+          '<h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Transactions</h1>' +
+          '<p class="text-sm text-slate-400 mt-0.5">Search, filter and manage your activity.</p>' +
+        '</div>' +
+        '<div class="flex gap-2">' +
+          '<button data-action="add-tx" data-type="income" class="btn-soft">' + icon('arrowUp', 'w-4 h-4') + 'Income</button>' +
+          '<button data-action="add-tx" data-type="expense" class="btn-primary">' + icon('plus', 'w-4 h-4') + 'Expense</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card card-pad mb-4">' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">' +
+          '<div class="lg:col-span-2 relative">' +
+            '<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">' + icon('search', 'w-4 h-4') + '</span>' +
+            '<input id="tx-search" class="input pl-10" placeholder="Search description or category…" />' +
+          '</div>' +
+          '<select id="tx-type" class="select">' +
+            '<option value="all">All types</option><option value="income">Income</option><option value="expense">Expense</option>' +
+          '</select>' +
+          '<select id="tx-cat" class="select">' +
+            '<option value="all">All categories</option>' + cats.map((c) => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('') +
+          '</select>' +
+          '<select id="tx-sort" class="select">' +
+            '<option value="date-desc">Newest first</option><option value="date-asc">Oldest first</option>' +
+            '<option value="amount-desc">Amount ↓</option><option value="amount-asc">Amount ↑</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-3 mt-3">' +
+          '<div><label class="label">From month</label><input id="tx-from" type="month" class="input" /></div>' +
+          '<div><label class="label">To month</label><input id="tx-to" type="month" class="input" /></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card overflow-hidden">' +
+        '<div id="tx-table-container"></div>' +
+      '</div>';
+  }
+
+  function renderTxTable() {
+    const container = document.getElementById('tx-table-container');
+    if (!container) return;
+    const list = filteredTx();
+    const perPage = 10;
+    const pages = Math.max(1, Math.ceil(list.length / perPage));
+    ui.txPage = clamp(ui.txPage, 1, pages);
+    const slice = list.slice((ui.txPage - 1) * perPage, ui.txPage * perPage);
+
+    if (!list.length) {
+      container.innerHTML = emptyState('No matching transactions', 'Try adjusting your filters or add a new transaction.');
+      return;
+    }
+
+    const rows = slice.map((t) => {
+      const c = catOf(t.categoryId);
+      const isInc = t.type === 'income';
+      const rec = t.recurring && t.recurring !== 'none'
+        ? '<span class="badge bg-brand-500/10 text-brand-500">' + (t.recurring === 'monthly' ? 'Monthly' : 'Weekly') + '</span>'
+        : (t.auto ? '<span class="badge bg-slate-500/10 text-slate-400">Auto</span>' : '');
+      return '<tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">' +
+        '<td class="table-td whitespace-nowrap">' + fmtDate(t.date) + '</td>' +
+        '<td class="table-td"><div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:' + (c ? c.color : '#64748b') + '"></span><span class="font-medium">' + esc(catName(t.categoryId)) + '</span></div></td>' +
+        '<td class="table-td max-w-[240px]"><span class="truncate block text-slate-500 dark:text-slate-400">' + esc(t.description || '—') + '</span></td>' +
+        '<td class="table-td">' + rec + '</td>' +
+        '<td class="table-td text-right font-bold whitespace-nowrap ' + (isInc ? 'text-emerald-500' : 'text-rose-500') + '">' + (isInc ? '+' : '−') + money(t.amount, 2) + '</td>' +
+        '<td class="table-td text-right whitespace-nowrap">' +
+          '<button class="btn-icon" data-action="edit-tx" data-id="' + t.id + '" title="Edit">' + icon('edit', 'w-4 h-4') + '</button>' +
+          '<button class="btn-icon hover:text-rose-500" data-action="delete-tx" data-id="' + t.id + '" title="Delete">' + icon('trash', 'w-4 h-4') + '</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+
+    const pag = pages > 1
+      ? '<div class="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-slate-800">' +
+          '<p class="text-xs text-slate-400">Showing ' + ((ui.txPage - 1) * perPage + 1) + '–' + Math.min(ui.txPage * perPage, list.length) + ' of ' + list.length + '</p>' +
+          '<div class="flex gap-1">' +
+            '<button class="btn-soft btn-xs" data-action="tx-page" data-page="' + (ui.txPage - 1) + '"' + (ui.txPage === 1 ? ' disabled' : '') + '>Prev</button>' +
+            '<span class="px-3 py-1.5 text-xs font-semibold">' + ui.txPage + ' / ' + pages + '</span>' +
+            '<button class="btn-soft btn-xs" data-action="tx-page" data-page="' + (ui.txPage + 1) + '"' + (ui.txPage === pages ? ' disabled' : '') + '>Next</button>' +
+          '</div>' +
+        '</div>'
+      : '';
+
+    container.innerHTML =
+      '<div class="overflow-x-auto"><table class="w-full min-w-[680px]">' +
+        '<thead><tr class="bg-slate-50 dark:bg-slate-900/60">' +
+          '<th class="table-th">Date</th><th class="table-th">Category</th><th class="table-th">Description</th>' +
+          '<th class="table-th">Recurring</th><th class="table-th text-right">Amount</th><th class="table-th"></th>' +
+        '</tr></thead>' +
+        '<tbody>' + rows + '</tbody>' +
+      '</table></div>' + pag;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 11. VIEW: GOALS
+   * ------------------------------------------------------------------ */
+  function goalStats(g) {
+    const target = num(g.targetAmount);
+    const current = num(g.currentAmount);
+    const remaining = Math.max(0, target - current);
+    const p = target ? (current / target) * 100 : 0;
+
+    const deposits = (g.contributions || []).filter((c) => c.type === 'deposit');
+    let avgMonthly = 0;
+    if (deposits.length) {
+      const cutoff = addMonths(new Date(), -3);
+      const recent = deposits.filter((c) => new Date(c.date + 'T00:00:00') >= cutoff);
+      const basis = recent.length ? recent : deposits;
+      avgMonthly = sum(basis, (c) => num(c.amount)) / (recent.length ? 3 : Math.max(1, monthsBetween(new Date(basis[0].date + 'T00:00:00'), new Date())));
+    }
+
+    let requiredMonthly = null;
+    if (g.targetDate) {
+      const monthsLeft = Math.max(1, monthsBetween(new Date(), new Date(g.targetDate + 'T00:00:00')));
+      requiredMonthly = remaining / monthsLeft;
+    }
+    let eta = null;
+    if (avgMonthly > 0 && remaining > 0) eta = addMonths(new Date(), Math.ceil(remaining / avgMonthly));
+    else if (remaining <= 0) eta = new Date();
+    return { target, current, remaining, p, avgMonthly, requiredMonthly, eta };
+  }
+  function monthsBetween(a, b) {
+    return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+  }
+
+  function viewGoals() {
+    const goals = state.goals;
+    const netMonthly = currentNetSavings();
+
+    const header =
+      '<div class="flex flex-wrap items-center justify-between gap-4 mb-6">' +
+        '<div>' +
+          '<h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Financial Goals</h1>' +
+          '<p class="text-sm text-slate-400 mt-0.5">Track progress toward what matters.</p>' +
+        '</div>' +
+        '<div class="flex items-center gap-2">' +
+          '<span class="hidden sm:inline text-xs text-slate-400">Est. net savings: <span class="font-semibold text-slate-600 dark:text-slate-300">' + money(netMonthly, 0) + '/mo</span></span>' +
+          '<button data-action="add-goal" class="btn-primary">' + icon('plus', 'w-4 h-4') + 'New goal</button>' +
+        '</div>' +
+      '</div>';
+
+    if (!goals.length) {
+      return header + '<div class="card">' + emptyState('No goals yet', 'Create your first financial goal — emergency fund, holiday, or a house deposit.', '<button data-action="add-goal" class="btn-primary">Create goal</button>') + '</div>';
+    }
+
+    const cards = '<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">' + goals.map((g) => {
+      const s = goalStats(g);
+      const col = s.p >= 100 ? '#22c55e' : s.p >= 50 ? '#6366f1' : '#f59e0b';
+      const done = s.remaining <= 0;
+      return '<div class="card card-pad flex flex-col">' +
+        '<div class="flex items-start justify-between gap-3">' +
+          '<div class="flex items-center gap-3 min-w-0">' +
+            '<span class="grid place-items-center w-11 h-11 rounded-xl text-xl shrink-0" style="background:' + (g.color || '#6366f1') + '22">' + (g.icon || '🎯') + '</span>' +
+            '<div class="min-w-0">' +
+              '<p class="font-bold truncate">' + esc(g.name) + '</p>' +
+              '<p class="text-xs text-slate-400">' + (g.targetDate ? 'Target ' + fmtDate(g.targetDate) : 'No target date') + '</p>' +
+            '</div>' +
+          '</div>' +
+          (done ? '<span class="badge bg-emerald-500/15 text-emerald-500 shrink-0">✓ Complete</span>' : '') +
+        '</div>' +
+        '<div class="mt-4">' +
+          '<div class="flex items-end justify-between mb-1.5">' +
+            '<span class="text-2xl font-extrabold">' + money(s.current, 0) + '</span>' +
+            '<span class="text-sm font-semibold" style="color:' + col + '">' + pct(s.p, 0) + '</span>' +
+          '</div>' +
+          '<div class="progress"><div class="progress-bar" style="width:' + clamp(s.p, 0, 100) + '%;background:' + col + '"></div></div>' +
+          '<div class="flex items-center justify-between mt-1.5 text-[11px] text-slate-400">' +
+            '<span>of ' + money(s.target, 0) + '</span>' +
+            '<span>' + money(s.remaining, 0) + ' to go</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-2 mt-4 text-center">' +
+          '<div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-2 py-2">' +
+            '<p class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Monthly need</p>' +
+            '<p class="text-sm font-bold mt-0.5">' + (s.requiredMonthly !== null ? money(s.requiredMonthly, 0) : '—') + '</p>' +
+          '</div>' +
+          '<div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-2 py-2">' +
+            '<p class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Est. done</p>' +
+            '<p class="text-sm font-bold mt-0.5">' + (s.eta ? (s.eta.getFullYear() === new Date().getFullYear() && s.p >= 100 ? 'Now' : new Date(s.eta).toLocaleDateString(locale(), { month: 'short', year: 'numeric' })) : '—') + '</p>' +
+          '</div>' +
+        '</div>' +
+        (g.notes ? '<p class="text-xs text-slate-400 mt-3 line-clamp-2">' + esc(g.notes) + '</p>' : '') +
+        '<div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">' +
+          '<button data-action="goal-deposit" data-id="' + g.id + '" class="btn-primary btn-xs flex-1">' + icon('plus', 'w-3.5 h-3.5') + 'Deposit</button>' +
+          '<button data-action="goal-withdraw" data-id="' + g.id + '" class="btn-soft btn-xs flex-1">Withdraw</button>' +
+          '<button data-action="goal-quick" data-id="' + g.id + '" class="btn-soft btn-xs" title="Allocate this month\'s net savings">' + icon('target', 'w-3.5 h-3.5') + '</button>' +
+          '<button class="btn-icon" data-action="edit-goal" data-id="' + g.id + '" title="Edit">' + icon('edit', 'w-4 h-4') + '</button>' +
+          '<button class="btn-icon hover:text-rose-500" data-action="delete-goal" data-id="' + g.id + '" title="Delete">' + icon('trash', 'w-4 h-4') + '</button>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+
+    return header + cards;
+  }
+
+  function currentNetSavings() {
+    const key = currentYM();
+    return sumMonth(key, 'income') - sumMonth(key, 'expense');
+  }
+
+  function goalContribution(g, amount, type, dateStr) {
+    amount = round2(Math.abs(num(amount)));
+    if (!amount) return false;
+    g.contributions = g.contributions || [];
+    g.contributions.push({ id: uid(), date: dateStr || todayISO(), amount, type });
+    g.currentAmount = round2(num(g.currentAmount) + (type === 'deposit' ? amount : -amount));
+    if (g.currentAmount < 0) g.currentAmount = 0;
+    // reflect in transactions under a savings category
+    const cat = state.categories.find((c) => c.group === 'savings') || null;
+    if (cat) {
+      state.transactions.push({
+        id: uid(), date: dateStr || todayISO(), categoryId: cat.id,
+        type: 'expense', amount, description: (type === 'deposit' ? 'Goal deposit · ' : 'Goal withdrawal · ') + g.name,
+        recurring: 'none',
+      });
+    }
+    save();
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 12. VIEW: SALARY
+   * ------------------------------------------------------------------ */
+  function salaryRow(label, value, cls, strong) {
+    return '<div class="flex items-center justify-between py-2 ' + (strong ? 'font-bold' : '') + '">' +
+      '<span class="text-sm ' + (strong ? '' : 'text-slate-500 dark:text-slate-400') + '">' + esc(label) + '</span>' +
+      '<span class="text-sm ' + (cls || '') + '">' + value + '</span>' +
+    '</div>';
+  }
+
+  function viewSalary() {
+    const s = state.settings.salary;
+    const r = computeSalary();
+    const bandRows = s.bands.map((b, i) =>
+      '<div class="flex items-center gap-2">' +
+        '<span class="text-xs text-slate-400 w-8 text-right">' + (i + 1) + '</span>' +
+        '<input type="number" class="input py-2 text-sm" placeholder="No limit" value="' + (b.upTo == null ? '' : b.upTo) + '" data-band="' + i + '" data-field="upTo" />' +
+        '<div class="relative w-24"><input type="number" step="0.1" class="input py-2 pr-7 text-sm text-right" value="' + b.rate + '" data-band="' + i + '" data-field="rate" /><span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span></div>' +
+        '<button class="btn-icon hover:text-rose-500" data-action="del-band" data-index="' + i + '">' + icon('trash', 'w-4 h-4') + '</button>' +
+      '</div>'
+    ).join('');
+
+    const contribRows = s.contributions.map((c, i) =>
+      '<div class="grid grid-cols-12 gap-2 items-center">' +
+        '<input class="input py-2 text-sm col-span-12 sm:col-span-3" value="' + esc(c.name) + '" data-contrib="' + i + '" data-field="name" />' +
+        '<div class="relative col-span-3"><input type="number" step="0.01" class="input py-2 pr-6 text-sm text-right" value="' + c.rate + '" data-contrib="' + i + '" data-field="rate" /><span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span></div>' +
+        '<select class="select py-2 text-sm col-span-4" data-contrib="' + i + '" data-field="capPeriod">' +
+          '<option value="month"' + (c.capPeriod === 'month' ? ' selected' : '') + '>Cap / mo</option>' +
+          '<option value="year"' + (c.capPeriod === 'year' ? ' selected' : '') + '>Cap / yr</option>' +
+        '</select>' +
+        '<input type="number" class="input py-2 text-sm col-span-4" placeholder="No cap" value="' + (c.cap == null ? '' : c.cap) + '" data-contrib="' + i + '" data-field="cap" />' +
+        '<label class="col-span-11 sm:col-span-10 flex items-center gap-2 text-xs text-slate-400 cursor-pointer">' +
+          '<input type="checkbox" class="rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500" ' + (c.deductible ? 'checked' : '') + ' data-contrib="' + i + '" data-field="deductible" /> Tax-deductible' +
+        '</label>' +
+        '<button class="btn-icon hover:text-rose-500 col-span-1 justify-self-end" data-action="del-contrib" data-index="' + i + '">' + icon('trash', 'w-4 h-4') + '</button>' +
+      '</div>'
+    ).join('');
+
+    const dedRows = s.deductions.length ? s.deductions.map((d, i) =>
+      '<div class="grid grid-cols-12 gap-2 items-center">' +
+        '<input class="input py-2 text-sm col-span-12 sm:col-span-4" placeholder="e.g. Pension" value="' + esc(d.name) + '" data-ded="' + i + '" data-field="name" />' +
+        '<div class="relative col-span-4"><input type="number" step="0.01" class="input py-2 pr-6 text-sm text-right" value="' + d.amount + '" data-ded="' + i + '" data-field="amount" /><span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400">' + (d.type === 'percent' ? '%' : currencyProfile().symbol) + '</span></div>' +
+        '<select class="select py-2 text-sm col-span-4" data-ded="' + i + '" data-field="type"><option value="fixed"' + (d.type === 'fixed' ? ' selected' : '') + '>Fixed</option><option value="percent"' + (d.type === 'percent' ? ' selected' : '') + '>% of gross</option></select>' +
+        '<label class="col-span-11 sm:col-span-10 flex items-center gap-2 text-xs text-slate-400 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500" ' + (d.pretax ? 'checked' : '') + ' data-ded="' + i + '" data-field="pretax" /> Pre-tax</label>' +
+        '<button class="btn-icon hover:text-rose-500 col-span-1 justify-self-end" data-action="del-ded" data-index="' + i + '">' + icon('trash', 'w-4 h-4') + '</button>' +
+      '</div>'
+    ).join('') : '<p class="text-xs text-slate-400">No custom deductions. Add pension, insurance, union fees, etc.</p>';
+
+    const presetOptions = Object.keys(TAX_PRESETS).map((k) =>
+      '<option value="' + k + '"' + (s.presetKey === k ? ' selected' : '') + '>' + esc(TAX_PRESETS[k].label) + '</option>'
+    ).join('') + '<option value="custom"' + (s.presetKey === 'custom' ? ' selected' : '') + '>Custom</option>';
+
+    return '' +
+      '<div class="flex flex-wrap items-center justify-between gap-4 mb-6">' +
+        '<div>' +
+          '<h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Salary Calculator</h1>' +
+          '<p class="text-sm text-slate-400 mt-0.5">From gross to net — with editable ' + currencyProfile().code + ' tax rules.</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="grid grid-cols-1 xl:grid-cols-5 gap-4">' +
+        '<div class="xl:col-span-3 space-y-4">' +
+          '<div class="card card-pad">' +
+            '<h2 class="font-bold mb-4">Income</h2>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">' +
+              '<div class="sm:col-span-2"><label class="label">Gross income</label>' +
+                '<div class="relative"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">' + currencyProfile().symbol + '</span>' +
+                '<input id="sal-gross" type="number" step="0.01" class="input pl-8" value="' + num(s.gross) + '" data-salary="gross" /></div>' +
+              '</div>' +
+              '<div><label class="label">Period</label><select class="select" data-salary="period"><option value="monthly"' + (s.period === 'monthly' ? ' selected' : '') + '>Monthly</option><option value="annual"' + (s.period === 'annual' ? ' selected' : '') + '>Annual</option></select></div>' +
+            '</div>' +
+            '<div class="mt-3"><label class="label">Tax preset</label><select class="select" data-salary="preset">' + presetOptions + '</select></div>' +
+          '</div>' +
+
+          '<div class="card card-pad">' +
+            '<div class="flex items-center justify-between mb-3"><h2 class="font-bold">Tax bands</h2><button class="btn-soft btn-xs" data-action="add-band">+ Band</button></div>' +
+            '<div class="grid grid-cols-12 gap-2 px-8 mb-1 text-[10px] uppercase tracking-wide text-slate-400 font-bold"><span class="col-span-7">Up to (annual)</span><span class="col-span-4 text-right pr-9">Rate</span></div>' +
+            '<div class="space-y-2">' + bandRows + '</div>' +
+            '<div class="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">' +
+              '<div><label class="label">Allowance</label><input type="number" class="input py-2 text-sm" value="' + num(s.allowance) + '" data-salary="allowance" /></div>' +
+              '<div><label class="label">Rebate</label><input type="number" class="input py-2 text-sm" value="' + num(s.rebate) + '" data-salary="rebate" /></div>' +
+              '<div><label class="label">Surcharge %</label><input type="number" step="0.1" class="input py-2 text-sm" value="' + num(s.surcharge) + '" data-salary="surcharge" /></div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="card card-pad">' +
+            '<div class="flex items-center justify-between mb-3"><h2 class="font-bold">Payroll contributions</h2><button class="btn-soft btn-xs" data-action="add-contrib">+ Contribution</button></div>' +
+            '<div class="space-y-2">' + (contribRows || '<p class="text-xs text-slate-400">None.</p>') + '</div>' +
+          '</div>' +
+
+          '<div class="card card-pad">' +
+            '<div class="flex items-center justify-between mb-3"><h2 class="font-bold">Custom deductions</h2><button class="btn-soft btn-xs" data-action="add-ded">+ Deduction</button></div>' +
+            '<div class="space-y-2">' + dedRows + '</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="xl:col-span-2">' +
+          '<div class="card card-pad xl:sticky xl:top-6">' +
+            '<h2 class="font-bold mb-1">Take-home breakdown</h2>' +
+            '<p class="text-xs text-slate-400 mb-3">' + (s.period === 'monthly' ? 'Per month' : 'Per year') + '</p>' +
+            '<div id="salary-results">' + salaryResultsHtml(r) + '</div>' +
+            '<button data-action="set-baseline" class="btn-primary w-full mt-4">Set net as monthly budget baseline</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function salaryResultsHtml(r) {
+    return '' +
+      '<div class="divide-y divide-slate-100 dark:divide-slate-800">' +
+        '<div class="pb-2">' +
+          salaryRow('Gross income', money(r.gross, 2), 'font-semibold') +
+          (r.allowance ? salaryRow('Less: allowance', '−' + money(r.allowance, 2), 'text-slate-400') : '') +
+          salaryRow('Taxable income', money(r.taxable, 2), 'font-semibold') +
+        '</div>' +
+        '<div class="py-2">' +
+          salaryRow('Income tax', '−' + money(r.tax, 2), 'text-rose-500') +
+          (r.surcharge ? salaryRow('Surcharge', '−' + money(r.surcharge, 2), 'text-rose-500') : '') +
+        '</div>' +
+        (r.contributions.length ? '<div class="py-2">' + r.contributions.map((c) =>
+          salaryRow(c.name + ' (' + c.rate + '%)', '−' + money(c.amount, 2), 'text-rose-500')).join('') + '</div>' : '') +
+        (r.deductions.length ? '<div class="py-2">' + r.deductions.map((d) =>
+          salaryRow(d.name, '−' + money(d.amount, 2), 'text-rose-500')).join('') + '</div>' : '') +
+        '<div class="pt-2">' +
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-sm font-semibold">Net income</span>' +
+            '<span class="text-2xl font-extrabold text-emerald-500">' + money(r.net, 2) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="grid grid-cols-2 gap-2 mt-4">' +
+        '<div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5 text-center"><p class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Effective rate</p><p class="text-base font-bold mt-0.5">' + pct(r.effectiveRate, 1) + '</p></div>' +
+        '<div class="rounded-xl bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5 text-center"><p class="text-[10px] uppercase tracking-wide text-slate-400 font-bold">Marginal rate</p><p class="text-base font-bold mt-0.5">' + pct(r.marginalRate, 0) + '</p></div>' +
+      '</div>';
+  }
+
+  function updateSalaryResults() {
+    const el = document.getElementById('salary-results');
+    if (el) el.innerHTML = salaryResultsHtml(computeSalary());
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 13. MODAL BUILDERS
+   * ------------------------------------------------------------------ */
+  function categoryOptions(type, selectedId) {
+    const list = state.categories.filter((c) => c.type === type);
+    return list.map((c) => '<option value="' + c.id + '"' + (c.id === selectedId ? ' selected' : '') + '>' + c.icon + ' ' + esc(c.name) + '</option>').join('');
+  }
+
+  function txModal(existing, presetType) {
+    const isEdit = !!existing;
+    const type = isEdit ? existing.type : (presetType || 'expense');
+    const cats = state.categories.filter((c) => c.type === type);
+    openModal({
+      title: isEdit ? 'Edit transaction' : 'New transaction',
+      body:
+        '<div class="space-y-4">' +
+          '<div><span class="label">Type</span>' +
+            '<div class="grid grid-cols-2 gap-2" id="tx-type-toggle">' +
+              '<button type="button" data-txtype="expense" class="btn ' + (type === 'expense' ? 'bg-rose-500 text-white' : 'btn-soft') + '">Expense</button>' +
+              '<button type="button" data-txtype="income" class="btn ' + (type === 'income' ? 'bg-emerald-500 text-white' : 'btn-soft') + '">Income</button>' +
+            '</div>' +
+            '<input type="hidden" name="type" id="tx-type-input" value="' + type + '" />' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Amount</label><input type="number" step="0.01" min="0" name="amount" required class="input" value="' + (isEdit ? existing.amount : '') + '" placeholder="0.00" /></div>' +
+            '<div><label class="label">Date</label><input type="date" name="date" required class="input" value="' + (isEdit ? existing.date : todayISO()) + '" /></div>' +
+          '</div>' +
+          '<div><label class="label">Category</label><select name="categoryId" id="tx-cat-select" class="select">' + categoryOptions(type, isEdit ? existing.categoryId : '') + '</select></div>' +
+          '<div><label class="label">Description</label><input name="description" class="input" value="' + (isEdit ? esc(existing.description) : '') + '" placeholder="Optional note" /></div>' +
+          '<div><label class="label">Recurring</label><select name="recurring" class="select">' +
+            '<option value="none"' + (isEdit && existing.recurring === 'none' ? ' selected' : '') + '>One-off</option>' +
+            '<option value="monthly"' + (isEdit && existing.recurring === 'monthly' ? ' selected' : '') + '>Monthly</option>' +
+            '<option value="weekly"' + (isEdit && existing.recurring === 'weekly' ? ' selected' : '') + '>Weekly</option>' +
+          '</select></div>' +
+        '</div>',
+      submitLabel: isEdit ? 'Save changes' : 'Add transaction',
+      onSubmit: (data) => {
+        if (!num(data.amount)) { toast('Enter an amount greater than zero', 'error'); return false; }
+        if (!data.categoryId) { toast('Create a category first', 'error'); return false; }
+        if (isEdit) updateTransaction(existing.id, data);
+        else addTransaction(data);
+        toast(isEdit ? 'Transaction updated' : 'Transaction added', 'success');
+        render();
+      },
+    });
+    const hidden = document.getElementById('tx-type-input');
+    document.getElementById('tx-type-toggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-txtype]');
+      if (!btn) return;
+      hidden.value = btn.dataset.txtype;
+      document.getElementById('tx-cat-select').innerHTML = categoryOptions(btn.dataset.txtype, '');
+    });
+  }
+
+  function categoryModal(existing) {
+    const isEdit = !!existing;
+    const c = existing || { name: '', type: 'expense', group: 'needs', target: '', color: COLORS[state.categories.length % COLORS.length], icon: '💳' };
+    openModal({
+      title: isEdit ? 'Edit category' : 'New category',
+      body:
+        '<div class="space-y-4">' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Name</label><input name="name" required class="input" value="' + esc(c.name) + '" placeholder="e.g. Groceries" /></div>' +
+            '<div><label class="label">Icon</label><input name="icon" class="input text-center" value="' + esc(c.icon) + '" maxlength="2" /></div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Type</label><select name="type" id="cat-type" class="select">' +
+              '<option value="expense"' + (c.type === 'expense' ? ' selected' : '') + '>Expense</option>' +
+              '<option value="income"' + (c.type === 'income' ? ' selected' : '') + '>Income</option>' +
+            '</select></div>' +
+            '<div><label class="label">Group</label><select name="group" id="cat-group" class="select">' +
+              '<option value="needs"' + (c.group === 'needs' ? ' selected' : '') + '>Needs</option>' +
+              '<option value="wants"' + (c.group === 'wants' ? ' selected' : '') + '>Wants</option>' +
+              '<option value="savings"' + (c.group === 'savings' ? ' selected' : '') + '>Savings</option>' +
+              '<option value="income"' + (c.group === 'income' ? ' selected' : '') + '>Income</option>' +
+            '</select></div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Monthly target</label><input type="number" min="0" step="50" name="target" class="input" value="' + (c.target || '') + '" placeholder="0" /></div>' +
+            '<div><label class="label">Colour</label><input type="color" name="color" class="input h-[42px] p-1" value="' + c.color + '" /></div>' +
+          '</div>' +
+        '</div>',
+      submitLabel: isEdit ? 'Save' : 'Add category',
+      onSubmit: (data) => {
+        if (!data.name.trim()) { toast('Name is required', 'error'); return false; }
+        const payload = { name: data.name.trim(), type: data.type, group: data.group, target: round2(num(data.target)), color: data.color, icon: data.icon || '💳' };
+        if (isEdit) Object.assign(existing, payload);
+        else state.categories.push({ id: uid(), ...payload });
+        save();
+        toast(isEdit ? 'Category saved' : 'Category added', 'success');
+        render();
+      },
+    });
+  }
+
+  function goalModal(existing) {
+    const isEdit = !!existing;
+    const g = existing || { name: '', targetAmount: '', currentAmount: 0, targetDate: '', icon: '🎯', color: '#6366f1', notes: '' };
+    const nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
+    openModal({
+      title: isEdit ? 'Edit goal' : 'New goal',
+      body:
+        '<div class="space-y-4">' +
+          '<div class="grid grid-cols-3 gap-3">' +
+            '<div class="col-span-2"><label class="label">Goal name</label><input name="name" required class="input" value="' + esc(g.name) + '" placeholder="e.g. Emergency Fund" /></div>' +
+            '<div><label class="label">Icon</label><input name="icon" class="input text-center" value="' + esc(g.icon) + '" maxlength="2" /></div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Target amount</label><input type="number" min="0" step="100" name="targetAmount" required class="input" value="' + (g.targetAmount || '') + '" placeholder="0" /></div>' +
+            '<div><label class="label">Already saved</label><input type="number" min="0" step="100" name="currentAmount" class="input" value="' + (g.currentAmount || 0) + '" /></div>' +
+          '</div>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Target date</label><input type="date" name="targetDate" class="input" value="' + (g.targetDate || '') + '" /></div>' +
+            '<div><label class="label">Colour</label><input type="color" name="color" class="input h-[42px] p-1" value="' + (g.color || '#6366f1') + '" /></div>' +
+          '</div>' +
+          '<div><label class="label">Notes</label><textarea name="notes" rows="2" class="input" placeholder="Optional">' + esc(g.notes || '') + '</textarea></div>' +
+        '</div>',
+      submitLabel: isEdit ? 'Save goal' : 'Create goal',
+      onSubmit: (data) => {
+        if (!data.name.trim()) { toast('Goal name is required', 'error'); return false; }
+        if (!num(data.targetAmount)) { toast('Set a target amount', 'error'); return false; }
+        const payload = {
+          name: data.name.trim(), targetAmount: round2(num(data.targetAmount)),
+          currentAmount: round2(num(data.currentAmount)), targetDate: data.targetDate || '',
+          icon: data.icon || '🎯', color: data.color, notes: data.notes || '',
+        };
+        if (isEdit) Object.assign(existing, payload);
+        else state.goals.push({ id: uid(), contributions: [], ...payload });
+        save();
+        toast(isEdit ? 'Goal saved' : 'Goal created', 'success');
+        render();
+      },
+    });
+  }
+
+  function goalFundsModal(goal, mode) {
+    const s = goalStats(goal);
+    openModal({
+      title: (mode === 'deposit' ? 'Deposit to ' : 'Withdraw from ') + goal.name,
+      body:
+        '<div class="space-y-4">' +
+          '<p class="text-sm text-slate-500 dark:text-slate-400">Current balance: <span class="font-bold text-slate-700 dark:text-slate-200">' + money(s.current, 2) + '</span></p>' +
+          '<div class="grid grid-cols-2 gap-3">' +
+            '<div><label class="label">Amount</label><input type="number" min="0" step="50" name="amount" required class="input" value="" placeholder="0" /></div>' +
+            '<div><label class="label">Date</label><input type="date" name="date" class="input" value="' + todayISO() + '" /></div>' +
+          '</div>' +
+          (mode === 'deposit' ? '<div class="flex flex-wrap gap-2">' +
+            '<button type="button" class="btn-soft btn-xs" data-quickamt="' + Math.round(s.remaining) + '">Remaining ' + money(s.remaining, 0) + '</button>' +
+            '<button type="button" class="btn-soft btn-xs" data-quickamt="' + Math.max(0, Math.round(currentNetSavings())) + '">Net savings ' + money(Math.max(0, currentNetSavings()), 0) + '</button>' +
+          '</div>' : '') +
+        '</div>',
+      submitLabel: mode === 'deposit' ? 'Deposit' : 'Withdraw',
+      onSubmit: (data) => {
+        if (!num(data.amount)) { toast('Enter an amount', 'error'); return false; }
+        goalContribution(goal, data.amount, mode, data.date);
+        toast(mode === 'deposit' ? 'Funds deposited' : 'Funds withdrawn', 'success');
+        render();
+      },
+    });
+    document.querySelectorAll('[data-quickamt]').forEach((b) => b.addEventListener('click', () => {
+      document.querySelector('#modal-form [name="amount"]').value = b.dataset.quickamt;
+    }));
+  }
+
+  function resetModal() {
+    openModal({
+      title: 'Reset all data',
+      body:
+        '<div class="space-y-4">' +
+          '<p class="text-sm text-slate-600 dark:text-slate-300">This permanently deletes all categories, transactions, goals and salary settings from this browser. This cannot be undone.</p>' +
+          '<div><label class="label">Type <span class="text-rose-500">RESET</span> to confirm</label><input name="confirm" class="input" placeholder="RESET" autocomplete="off" /></div>' +
+        '</div>',
+      submitLabel: 'Delete everything',
+      onSubmit: (data) => {
+        if ((data.confirm || '').trim().toUpperCase() !== 'RESET') { toast('Type RESET to confirm', 'error'); return false; }
+        state = freshState();
+        save();
+        toast('All data reset', 'success');
+        route();
+        renderSidebar();
+      },
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 14. DATA PORTABILITY
+   * ------------------------------------------------------------------ */
+  function download(filename, content, mime) {
+    const blob = new Blob([content], { type: mime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function stamp() { const d = new Date(); return d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '-' + pad2(d.getHours()) + pad2(d.getMinutes()); }
+
+  function exportJSON() {
+    download('stash-stack-' + stamp() + '.json', JSON.stringify(state, null, 2), 'application/json');
+    toast('Exported JSON backup', 'success');
+  }
+
+  function csvCell(v) {
+    const s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function exportCSV() {
+    const headers = ['Date', 'Type', 'Category', 'Amount', 'Description', 'Recurring'];
+    const rows = state.transactions.slice()
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
+      .map((t) => [t.date, t.type, catName(t.categoryId), num(t.amount), t.description || '', t.recurring || 'none']);
+    const csv = [headers].concat(rows).map((r) => r.map(csvCell).join(',')).join('\n');
+    download('stash-stack-transactions-' + stamp() + '.csv', csv, 'text/csv');
+    toast('Exported transactions CSV', 'success');
+  }
+
+  function importJSONFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (!parsed || typeof parsed !== 'object' || !('transactions' in parsed || 'categories' in parsed)) {
+          throw new Error('Not a Stash-Stack backup');
+        }
+        confirmModal('Importing will replace your current data with the contents of "' + file.name + '". Continue?', () => {
+          state = mergeState(parsed);
+          save();
+          materializeRecurring();
+          renderSidebar();
+          route();
+          toast('Data imported', 'success');
+        }, { title: 'Import data', submitLabel: 'Replace data' });
+      } catch (err) {
+        toast('Import failed: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function buildSample() {
+    const now = new Date();
+    const cats = DEFAULT_CATEGORIES.map((c) => ({ id: uid(), ...c }));
+    const by = (name) => (cats.find((c) => c.name === name) || {}).id;
+    const tx = [];
+    const put = (mOffset, day, name, type, amount, desc, rec) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + mOffset, day);
+      tx.push({ id: uid(), date: isoDate(d), categoryId: by(name), type, amount: round2(amount), description: desc, recurring: rec || 'none' });
+    };
+    for (let m = -3; m <= 0; m++) {
+      put(m, 1, 'Salary', 'income', 42000, 'Monthly salary');
+      put(m, 2, 'Rent / Bond', 'expense', 9500, 'Rent');
+      put(m, 6, 'Groceries', 'expense', 3400 + (m + 3) * 120, 'Weekly groceries');
+      put(m, 8, 'Transport', 'expense', 2100, 'Fuel & transport');
+      put(m, 10, 'Utilities', 'expense', 1650, 'Electricity & water');
+      put(m, 12, 'Insurance', 'expense', 1450, 'Car & medical');
+      put(m, 14, 'Dining Out', 'expense', 1200 + (m + 3) * 80, 'Restaurants');
+      put(m, 18, 'Entertainment', 'expense', 850, 'Movies & games');
+      put(m, 20, 'Shopping', 'expense', 900 + (m + 3) * 100, 'Clothing');
+      put(m, 22, 'Emergency Fund', 'expense', 2500, 'Savings transfer');
+      put(m, 25, 'Investments', 'expense', 4000, 'ETF contribution');
+      if (m === 0) put(m, Math.min(now.getDate(), 26), 'Freelance', 'income', 6500, 'Side project');
+    }
+    // one live recurring template for future months
+    put(0, Math.min(now.getDate(), 15), 'Subscriptions', 'expense', 599, 'Streaming services', 'monthly');
+
+    const gd = (offsetMonths) => isoDate(new Date(now.getFullYear(), now.getMonth() + offsetMonths, 1));
+    const goals = [
+      {
+        id: uid(), name: 'Emergency Fund', targetAmount: 100000, currentAmount: 24000,
+        targetDate: gd(18), icon: '🆘', color: '#22c55e', notes: '3–6 months of essential expenses.',
+        contributions: [
+          { id: uid(), date: isoDate(addMonths(now, -3)), amount: 2500, type: 'deposit' },
+          { id: uid(), date: isoDate(addMonths(now, -2)), amount: 2500, type: 'deposit' },
+          { id: uid(), date: isoDate(addMonths(now, -1)), amount: 2500, type: 'deposit' },
+        ],
+      },
+      {
+        id: uid(), name: 'House Deposit', targetAmount: 500000, currentAmount: 75000,
+        targetDate: gd(48), icon: '🏠', color: '#6366f1', notes: '20% deposit target.',
+        contributions: [
+          { id: uid(), date: isoDate(addMonths(now, -3)), amount: 5000, type: 'deposit' },
+          { id: uid(), date: isoDate(addMonths(now, -1)), amount: 7000, type: 'deposit' },
+        ],
+      },
+      {
+        id: uid(), name: 'Vacation · Bali', targetAmount: 40000, currentAmount: 12000,
+        targetDate: gd(10), icon: '🏝️', color: '#0ea5e9', notes: 'Flights + accommodation.',
+        contributions: [
+          { id: uid(), date: isoDate(addMonths(now, -2)), amount: 4000, type: 'deposit' },
+          { id: uid(), date: isoDate(addMonths(now, -1)), amount: 3000, type: 'deposit' },
+        ],
+      },
+    ];
+
+    return {
+      version: 1,
+      settings: { theme: state.settings.theme, currency: state.settings.currency, locale: state.settings.locale, salary: defaultSalary((CURRENCY_PROFILES[state.settings.currency] || {}).country || 'ZA') },
+      categories: cats,
+      transactions: tx,
+      goals,
+      budgetRule: { mode: '50/30/20', needs: 50, wants: 30, savings: 20, baselineIncome: 42000 },
+    };
+  }
+
+  function loadSample() {
+    confirmModal('Load sample data? This replaces your current data with a realistic demo dataset.', () => {
+      state = buildSample();
+      save();
+      renderSidebar();
+      route();
+      toast('Sample data loaded', 'success');
+    }, { title: 'Load sample data', submitLabel: 'Load sample' });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 15. EVENT WIRING
+   * ------------------------------------------------------------------ */
+  function currentUserId() { return null; }
+
+  function handleAction(action, el) {
+    const id = el.dataset.id;
+    switch (action) {
+      case 'add-tx': txModal(null, el.dataset.type); break;
+      case 'edit-tx': { const t = state.transactions.find((x) => x.id === id); if (t) txModal(t); break; }
+      case 'delete-tx':
+        confirmModal('Delete this transaction?', () => { deleteTransaction(id); toast('Transaction deleted', 'success'); render(); }, { title: 'Delete transaction', submitLabel: 'Delete' });
+        break;
+      case 'add-category': categoryModal(null); break;
+      case 'edit-category': { const c = catOf(id); if (c) categoryModal(c); break; }
+      case 'delete-category':
+        confirmModal('Delete this category? Transactions using it will show as uncategorised.', () => { state.categories = state.categories.filter((c) => c.id !== id); save(); toast('Category deleted', 'success'); render(); }, { title: 'Delete category', submitLabel: 'Delete' });
+        break;
+      case 'add-goal': goalModal(null); break;
+      case 'edit-goal': { const g = state.goals.find((x) => x.id === id); if (g) goalModal(g); break; }
+      case 'delete-goal':
+        confirmModal('Delete this goal? Its contribution history will be removed (transactions remain).', () => { state.goals = state.goals.filter((g) => g.id !== id); save(); toast('Goal deleted', 'success'); render(); }, { title: 'Delete goal', submitLabel: 'Delete' });
+        break;
+      case 'goal-deposit': { const g = state.goals.find((x) => x.id === id); if (g) goalFundsModal(g, 'deposit'); break; }
+      case 'goal-withdraw': { const g = state.goals.find((x) => x.id === id); if (g) goalFundsModal(g, 'withdraw'); break; }
+      case 'goal-quick': {
+        const g = state.goals.find((x) => x.id === id);
+        if (!g) break;
+        const net = currentNetSavings();
+        if (net <= 0) { toast('No positive net savings this month to allocate', 'error'); break; }
+        const s = goalStats(g);
+        const amt = Math.min(net, s.remaining > 0 ? s.remaining : net);
+        confirmModal('Allocate ' + money(amt, 2) + ' of this month\'s net savings into "' + g.name + '"?', () => {
+          goalContribution(g, amt, 'deposit');
+          toast('Allocated ' + money(amt, 0) + ' to ' + g.name, 'success');
+          render();
+        }, { title: 'Quick allocate', submitLabel: 'Allocate' });
+        break;
+      }
+      case 'rule-mode':
+        state.budgetRule.mode = el.dataset.mode;
+        save(); render();
+        break;
+      case 'add-band': state.settings.salary.bands.push({ upTo: null, rate: 0 }); save(); render(); break;
+      case 'del-band': state.settings.salary.bands.splice(+el.dataset.index, 1); save(); render(); break;
+      case 'add-contrib': state.settings.salary.contributions.push({ name: 'New contribution', rate: 0, threshold: 0, thresholdPeriod: 'year', cap: null, capPeriod: 'year', deductible: false }); save(); render(); break;
+      case 'del-contrib': state.settings.salary.contributions.splice(+el.dataset.index, 1); save(); render(); break;
+      case 'add-ded': state.settings.salary.deductions.push({ name: 'New deduction', amount: 0, type: 'fixed', period: 'month', pretax: false }); save(); render(); break;
+      case 'del-ded': state.settings.salary.deductions.splice(+el.dataset.index, 1); save(); render(); break;
+      case 'set-baseline': {
+        const r = computeSalary();
+        state.budgetRule.baselineIncome = round2(r.net);
+        save();
+        toast('Monthly budget baseline set to ' + money(r.net, 0), 'success');
+        break;
+      }
+      case 'goto': go(el.dataset.tab); break;
+      case 'tx-page': ui.txPage = +el.dataset.page; renderTxTable(); break;
+      case 'export-json': exportJSON(); break;
+      case 'export-csv': exportCSV(); break;
+      case 'import-json': document.getElementById('import-file').click(); break;
+      case 'sample': loadSample(); break;
+      case 'reset': resetModal(); break;
+      default: break;
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (el) { handleAction(el.dataset.action, el); return; }
+    // mobile menu
+    if (e.target.closest('#menu-toggle')) openSidebar();
+    else if (e.target.closest('#menu-close') || e.target.closest('#sidebar-overlay')) closeSidebar();
+    else if (e.target.closest('#theme-toggle') || e.target.closest('#theme-toggle-mobile')) toggleTheme();
+  });
+
+  document.getElementById('currency-select').addEventListener('change', (e) => {
+    applyCurrency(e.target.value);
+    renderSidebar();
+    render();
+    toast('Currency set to ' + e.target.value, 'info');
+  });
+
+  document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) importJSONFile(file);
+    e.target.value = '';
+  });
+
+  // Live search (table only) + dashboard month
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.id === 'tx-search') { ui.txPage = 1; renderTxTable(); return; }
+    if (t.id === 'tx-from' || t.id === 'tx-to') { ui.txPage = 1; renderTxTable(); return; }
+    if (t.dataset.rule) { state.budgetRule[t.dataset.rule] = num(t.value); save(); if (activeTab() === 'budget' && t.value !== '') { /* live but avoid rerender loop */ } return; }
+  });
+
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+
+    if (t.id === 'dash-month') { ui.dashboardMonth = t.value || currentYM(); destroyCharts(); render(); return; }
+    if (t.id === 'tx-type' || t.id === 'tx-cat' || t.id === 'tx-sort') { ui.txPage = 1; renderTxTable(); return; }
+    if (t.id === 'cat-type') {
+      const groupSel = document.getElementById('cat-group');
+      if (t.value === 'income') groupSel.value = 'income';
+      else if (groupSel.value === 'income') groupSel.value = 'needs';
+      return;
+    }
+    if (t.id === 'sal-gross' || t.dataset.salary === 'gross') {
+      state.settings.salary.gross = num(t.value); save(); updateSalaryResults(); return;
+    }
+    if (t.dataset.salary === 'period') { state.settings.salary.period = t.value; save(); render(); return; }
+    if (t.dataset.salary === 'preset') {
+      if (t.value === 'custom') { state.settings.salary.presetKey = 'custom'; }
+      else applyPreset(t.value);
+      save(); render(); return;
+    }
+    if (t.dataset.salary) { state.settings.salary[t.dataset.salary] = num(t.value); save(); updateSalaryResults(); return; }
+
+    if (t.dataset.band !== undefined && t.dataset.band !== '') {
+      const b = state.settings.salary.bands[+t.dataset.band];
+      if (b) { b[t.dataset.field] = t.dataset.field === 'upTo' ? (t.value === '' ? null : num(t.value)) : num(t.value); save(); updateSalaryResults(); }
+      return;
+    }
+    if (t.dataset.contrib !== undefined && t.dataset.contrib !== '') {
+      const c = state.settings.salary.contributions[+t.dataset.contrib];
+      if (c) {
+        const f = t.dataset.field;
+        if (f === 'deductible') c.deductible = t.checked;
+        else if (f === 'name') c.name = t.value;
+        else if (f === 'cap') c.cap = t.value === '' ? null : num(t.value);
+        else if (f === 'rate') c.rate = num(t.value);
+        else c[f] = t.value;
+        save(); updateSalaryResults();
+      }
+      return;
+    }
+    if (t.dataset.ded !== undefined && t.dataset.ded !== '') {
+      const d = state.settings.salary.deductions[+t.dataset.ded];
+      if (d) {
+        const f = t.dataset.field;
+        if (f === 'pretax') d.pretax = t.checked;
+        else if (f === 'name') d.name = t.value;
+        else if (f === 'amount') d.amount = num(t.value);
+        else d[f] = t.value;
+        save(); updateSalaryResults();
+      }
+      return;
+    }
+    if (t.dataset.rule) {
+      state.budgetRule[t.dataset.rule] = num(t.value);
+      save(); render();
+      return;
+    }
+    if (t.dataset.target) {
+      const c = catOf(t.dataset.target);
+      if (c) { c.target = round2(num(t.value)); save(); render(); }
+      return;
+    }
+  });
+
+  /* ------------------------------------------------------------------ *
+   * 16. INIT
+   * ------------------------------------------------------------------ */
+  function init() {
+    if (!localStorage.getItem(STORAGE_KEY)) {
+      localStorage.setItem(STORAGE_KEY, '');
+    }
+    state = loadState();
+    materializeRecurring();
+    document.documentElement.classList.toggle('dark', state.settings.theme === 'dark');
+    if (!ui.dashboardMonth) ui.dashboardMonth = currentYM();
+    renderSidebar();
+    window.addEventListener('hashchange', route);
+    if (!location.hash) location.hash = '#dashboard';
+    route();
+    setTimeout(() => {
+      if (!state.transactions.length && !state.goals.length) {
+        toast('Tip: load sample data from the sidebar to explore.', 'info');
+      }
+    }, 900);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
